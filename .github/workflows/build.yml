@@ -30,12 +30,18 @@ jobs:
 
       - name: Build dmlive (Backend)
         run: |
-          cd dmlive/dmlive
+          # 1. 进入子模块目录 (根目录下的 dmlive)
+          cd dmlive
+          
+          # 2. 编译
           cargo build --release --target aarch64-apple-darwin
-          # 创建 Tauri 要求的 Sidecar 目录
-          mkdir -p ../../Revda/src-tauri/bin
-          # 重要：重命名符合 Tauri 规范 (BinaryName-TargetTriple)
-          cp target/aarch64-apple-darwin/release/dmlive ../../Revda/src-tauri/bin/dmlive-aarch64-apple-darwin
+          
+          # 3. 创建目录 (此时在 dmlive 目录里，退一层才能看到 Revda)
+          mkdir -p ../Revda/src-tauri/bin
+          
+          # 4. 拷贝并重命名 Sidecar 
+          # 编译产物在 dmlive/target/...
+          cp target/aarch64-apple-darwin/release/dmlive ../Revda/src-tauri/bin/dmlive-aarch64-apple-darwin
 
       - name: Build Revda (Frontend & App Bundle)
         run: |
