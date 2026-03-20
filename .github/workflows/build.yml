@@ -1,0 +1,55 @@
+name: Build Revda for macOS Silicon
+on:
+  workflow_dispatch: # 手动触发构建
+
+jobs:
+  build:
+    runs-on: macos-latest # GitHub 会分配一个 M1/M2 的 Mac 给运行
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install System Dependencies
+        run: |
+          brew install ffmpeg mpv pkg-config yarn
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'yarn'
+          cache-dependency-path: 'Revda/yarn.lock'
+
+      - name: Build dmlive (Backend)
+        run: |
+          cd dmlive/dmlive
+          cargo build --release --target aarch64-apple-darwin
+          # 创建 Tauri 要求的 Sidecar 目录
+          mkdir -p ../../Revda/src-tauri/bin
+          # 重要：重命名符合 Tauri 规范 (BinaryName-TargetTriple)
+          cp target/aarch64-apple-darwin/release/dmlive ../../Revda/src-tauri/bin/dmlive-aarch64-apple-darwin
+
+      - name: Build Revda (Frontend & App Bundle)
+        run: |
+          cd Revda
+          yarn install
+          # 告诉 Tauri 这是一个 Sidecar
+          # 注意：这里需要确保 Revda 的 tauri.conf.json 允许 externalBin，如果上游没写，我们用 sed 强制插入
+          sed -i '' 's/"externalBin": \[\]/"externalBin": \["bin\/dmlive"\]/g' src-tauri/tauri.conf.json
+          yarn tauri build
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Revda-macOS-Silicon
+          path: |
+            Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
