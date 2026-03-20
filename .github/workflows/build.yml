@@ -14,7 +14,7 @@ jobs:
 
       - name: Install System Dependencies
         run: |
-          brew install ffmpeg mpv pkg-config yarn
+          brew install ffmpeg mpv pkg-config yarn --quiet
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -22,43 +22,26 @@ jobs:
           targets: aarch64-apple-darwin
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 20
+          node-version: 24
           cache: 'yarn'
           cache-dependency-path: 'Revda/yarn.lock'
 
       - name: Build dmlive (Backend)
         run: |
-          # 1. 进入子模块目录 (根目录下的 dmlive)
           cd dmlive
-          
-          # 2. 编译
           cargo build --release --target aarch64-apple-darwin
-          
-          # 3. 创建目录 (此时在 dmlive 目录里，退一层才能看到 Revda)
           mkdir -p ../Revda/src-tauri/bin
-          
-          # 4. 拷贝并重命名 Sidecar 
-          # 编译产物在 dmlive/target/...
           cp target/aarch64-apple-darwin/release/dmlive ../Revda/src-tauri/bin/dmlive-aarch64-apple-darwin
 
       - name: Build Revda (Frontend & App Bundle)
         run: |
           cd Revda
-          # 1. 安装前端依赖
-          yarn install
-          
-          # 2. 【新增】构建前端网页产物 (这一步会生成 dist 文件夹)
+          yarn install --frozen-lockfile
           yarn build
-          
-          # 3. 修正配置：将 Linux 的 deb 目标改为 Mac 的 dmg/bundle 目标
-          sed -i '' 's/"targets": "deb"/"targets": ["dmg", "bundle"]/g' src-tauri/tauri.conf.json
-          
-          # 4. 修正配置：插入 Sidecar 二进制声明
-          sed -i '' 's/"externalBin": \[\]/"externalBin": \["bin\/dmlive"\]/g' src-tauri/tauri.conf.json
-          
-          # 5. 构建 Tauri App (指定 target 为 Apple Silicon)
+          sed -i '' 's/"targets": "deb"/"targets": "all"/g' src-tauri/tauri.conf.json          
+          sed -i '' 's/"externalBin": \[\]/"externalBin": \["bin\/dmlive"\]/g' src-tauri/tauri.conf.json          
           yarn tauri build --target aarch64-apple-darwin
 
       - name: Upload Artifact
