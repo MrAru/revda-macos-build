@@ -1,4 +1,4 @@
-name: Build and Release Revda
+name: Build Revda for macOS Silicon
 on:
   workflow_dispatch:
   schedule:
@@ -8,11 +8,8 @@ permissions:
   contents: write
 
 jobs:
-  check_and_build:
+  build:
     runs-on: macos-latest
-    outputs:
-      changed: ${{ steps.check_changes.outputs.changed }}
-      version: ${{ steps.set_version.outputs.version }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v6
@@ -25,33 +22,23 @@ jobs:
         run: |
           git submodule update --init --recursive --remote
           if [ -n "$(git status --porcelain)" ]; then
-            echo "detected_changes=true" >> $GITHUB_ENV
-            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "changed=true" >> $GITHUB_ENV
           else
-            echo "detected_changes=false" >> $GITHUB_ENV
-            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "changed=false" >> $GITHUB_ENV
           fi
 
-      - name: Set Version Tag
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
-        id: set_version
-        run: |
-          VERSION="$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)"
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-
       - name: Install System Dependencies
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: brew install ffmpeg mpv pkg-config yarn --quiet
 
       - name: Setup Rust
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin
 
       - name: Setup Node
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@v6
         with:
           node-version: 24
@@ -59,7 +46,7 @@ jobs:
           cache-dependency-path: 'Revda/yarn.lock'
 
       - name: Build dmlive (Backend)
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           cd dmlive
           cargo build --release --target aarch64-apple-darwin
@@ -67,16 +54,17 @@ jobs:
           cp target/aarch64-apple-darwin/release/dmlive ../Revda/src-tauri/bin/dmlive-aarch64-apple-darwin
 
       - name: Build Revda (Frontend & App Bundle)
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           cd Revda
-          yarn install
-          sed -i '' 's/"targets": "deb"/"targets": "dmg"/g' src-tauri/tauri.conf.json
+          yarn install --frozen-lockfile
+          yarn build
+          sed -i '' 's/"targets": "deb"/"targets": "all"/g' src-tauri/tauri.conf.json
           sed -i '' 's/"externalBin": \[\]/"externalBin": \["bin\/dmlive"\]/g' src-tauri/tauri.conf.json
           yarn tauri build --target aarch64-apple-darwin
 
       - name: Commit Updated Submodules
-        if: env.detected_changes == 'true'
+        if: env.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -84,31 +72,36 @@ jobs:
           git commit -m "chore: update submodules [skip ci]"
           git push
 
+      - name: Set Version
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          echo "VERSION=$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+
       - name: Calculate SHA256
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         id: shasum
         run: |
           DMG_PATH=$(ls Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
-          SHA256=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')
-          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "sha256=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION }}
           name: Revda Silicon Build ${{ env.VERSION }}
           body: |
-            ## Build Summary
             - **Build**: ${{ env.VERSION }}
             - **DMG SHA256**: `${{ steps.shasum.outputs.sha256 }}`
           files: Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
           draft: false
           prerelease: false
 
-      - name: Upload Artifact (Backup)
-        if: env.detected_changes == 'true' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+      - name: Upload Artifact
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v6
         with:
           name: Revda-${{ env.VERSION }}
-          path: Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          path: |
+            Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
