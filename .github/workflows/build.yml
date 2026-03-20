@@ -1,16 +1,22 @@
 name: Build Revda for macOS Silicon
 on:
   workflow_dispatch: # 手动触发构建
+  schedule:
+    - cron: '0 0 * * 0'
 
 jobs:
   build:
-    runs-on: macos-latest # GitHub 会分配一个 M1/M2 的 Mac 给运行
+    runs-on: macos-latest
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
           fetch-depth: 0
+
+      - name: Update Submodules to Latest
+        run: |
+          git submodule update --init --recursive --remote
 
       - name: Install System Dependencies
         run: |
@@ -45,7 +51,7 @@ jobs:
           yarn tauri build --target aarch64-apple-darwin
 
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Revda-macOS-Silicon
           path: |
