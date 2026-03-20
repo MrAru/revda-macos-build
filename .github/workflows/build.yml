@@ -46,11 +46,20 @@ jobs:
       - name: Build Revda (Frontend & App Bundle)
         run: |
           cd Revda
+          # 1. 安装前端依赖
           yarn install
-          # 告诉 Tauri 这是一个 Sidecar
-          # 注意：这里需要确保 Revda 的 tauri.conf.json 允许 externalBin，如果上游没写，我们用 sed 强制插入
+          
+          # 2. 【新增】构建前端网页产物 (这一步会生成 dist 文件夹)
+          yarn build
+          
+          # 3. 修正配置：将 Linux 的 deb 目标改为 Mac 的 dmg/bundle 目标
+          sed -i '' 's/"targets": "deb"/"targets": ["dmg", "bundle"]/g' src-tauri/tauri.conf.json
+          
+          # 4. 修正配置：插入 Sidecar 二进制声明
           sed -i '' 's/"externalBin": \[\]/"externalBin": \["bin\/dmlive"\]/g' src-tauri/tauri.conf.json
-          yarn tauri build
+          
+          # 5. 构建 Tauri App (指定 target 为 Apple Silicon)
+          yarn tauri build --target aarch64-apple-darwin
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
