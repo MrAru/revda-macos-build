@@ -1,6 +1,3 @@
 [submodule "Revda"]
 	path = Revda
 	url = https://github.com/THMonster/Revda.git
-[submodule "dmlive"]
-	path = dmlive
-	url = https://github.com/THMonster/dmlive.git
