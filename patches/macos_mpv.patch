@@ -1,0 +1,26 @@
+diff --git i/src/mpv/mod.rs w/src/mpv/mod.rs
+index b287806..51702a2 100644
+--- i/src/mpv/mod.rs
++++ w/src/mpv/mod.rs
+@@ -32,8 +32,20 @@ impl MpvControl {
+         }
+     }
+ 
++    fn get_mpv_bin() -> String {
++        if cfg!(target_os = "macos") {
++            if let Some(path) = ["/opt/homebrew/bin/mpv", "/usr/local/bin/mpv"]
++                .into_iter()
++                .find(|p| std::path::Path::new(p).exists())
++            {
++                return path.to_string();
++            }
++        }
++        "mpv".to_string()
++    }
++
+     pub async fn create_mpv_command(&self) -> Result<Command> {
+-        let mut ret = Command::new("mpv");
++        let mut ret = Command::new(Self::get_mpv_bin());
+         if matches!(self.ctx.cm.site, crate::config::Site::BiliVideo) {
+             ret.arg(format!("--user-agent={}", gen_ua()))
+                 .arg("--http-header-fields-add=Referer: https://www.bilibili.com/");

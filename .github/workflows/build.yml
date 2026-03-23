@@ -27,11 +27,14 @@ jobs:
             echo "changed=false" >> $GITHUB_ENV
           fi
 
-      - name: Apply Patch to dmlive
+      - name: Apply Patches
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           cd Revda/dmlive
           git apply ../../patches/macos_ffmpeg.patch
+          git apply ../../patches/macos_mpv.patch
+          cd ..
+          git apply ../patches/macos_dmlive_path.patch
 
       - name: Install System Dependencies
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'

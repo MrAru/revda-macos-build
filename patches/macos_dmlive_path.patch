@@ -1,0 +1,34 @@
+diff --git i/src-tauri/src/cmd.rs w/src-tauri/src/cmd.rs
+index a6680cb..1e7011f 100644
+--- i/src-tauri/src/cmd.rs
++++ w/src-tauri/src/cmd.rs
+@@ -2,6 +2,20 @@ use crate::{config::write_config, sites::RoomInfo};
+ use std::{collections::VecDeque, sync::Arc, time::Duration};
+ use tokio::time::sleep;
+ 
++fn get_dmlive_bin() -> String {
++    if cfg!(target_os = "macos") {
++        if let Ok(exe) = std::env::current_exe() {
++            if let Some(dir) = exe.parent() {
++                let dmlive = dir.join("dmlive");
++                if dmlive.exists() {
++                    return dmlive.to_string_lossy().to_string();
++                }
++            }
++        }
++    }
++    "dmlive".to_string()
++}
++
+ #[tauri::command]
+ pub async fn init(state: tauri::State<'_, Arc<crate::State>>) -> Result<(), String> {
+     let mut config = state.config.write().await;
+@@ -56,7 +70,7 @@ pub async fn open_room(room_code: String) -> Result<(), String> {
+     } else {
+         return Err("unknown room code!".into());
+     };
+-    let _ = tokio::process::Command::new("dmlive").arg("--quiet").arg("-u").arg(url).spawn();
++    let _ = tokio::process::Command::new(get_dmlive_bin()).arg("--quiet").arg("-u").arg(url).spawn();
+     Ok(())
+ }
+ 
