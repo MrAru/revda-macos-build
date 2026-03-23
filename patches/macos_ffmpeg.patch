@@ -1,5 +1,5 @@
 diff --git i/src/ffmpeg/mod.rs w/src/ffmpeg/mod.rs
-index 4fd283e..96f61d1 100644
+index 4fd283e..2c21569 100644
 --- i/src/ffmpeg/mod.rs
 +++ w/src/ffmpeg/mod.rs
 @@ -25,6 +25,19 @@ impl FfmpegControl {
@@ -27,7 +27,7 @@ index 4fd283e..96f61d1 100644
              now.format("%F %T")
          );
 -        let mut cmd = Command::new("ffmpeg");
-+        let mut cmd = Command::new(get_ffmpeg_bin());
++        let mut cmd = Command::new(Self::get_ffmpeg_bin());
          cmd.args(["-y", "-hide_banner", "-nostdin"]);
          cmd.arg("-i");
          cmd.arg(&in_stream);
@@ -36,7 +36,7 @@ index 4fd283e..96f61d1 100644
              now.format("%F %T")
          );
 -        let mut cmd = Command::new("ffmpeg");
-+        let mut cmd = Command::new(get_ffmpeg_bin());
++        let mut cmd = Command::new(Self::get_ffmpeg_bin());
          cmd.args(["-y", "-hide_banner", "-nostdin"]);
          cmd.arg("-i");
          cmd.arg(&in_stream);
@@ -45,7 +45,7 @@ index 4fd283e..96f61d1 100644
  
      pub fn create_pre_ff_command(&self) -> Result<Command> {
 -        let mut ret = Command::new("ffmpeg");
-+        let mut ret = Command::new(get_ffmpeg_bin());
++        let mut ret = Command::new(Self::get_ffmpeg_bin());
          ret.args(["-y", "-xerror"]);
          ret.arg("-hide_banner");
          ret.arg("-nostats");
@@ -54,7 +54,7 @@ index 4fd283e..96f61d1 100644
  
      pub fn create_ff_command(&self, stream_info: &HashMap<&str, String>) -> Result<Command> {
 -        let mut ret = Command::new("ffmpeg");
-+        let mut ret = Command::new(get_ffmpeg_bin());
++        let mut ret = Command::new(Self::get_ffmpeg_bin());
          ret.args(["-y", "-xerror"]);
          ret.arg("-hide_banner");
          ret.arg("-nostats");
