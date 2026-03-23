@@ -46,6 +46,19 @@ jobs:
         with:
           targets: aarch64-apple-darwin
 
+      - name: Cache Cargo
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            Revda/dmlive/target
+            Revda/src-tauri/target
+          key: cargo-macos-aarch64-${{ hashFiles('Revda/dmlive/Cargo.lock', 'Revda/src-tauri/Cargo.lock') }}
+          restore-keys: |
+            cargo-macos-aarch64-
+
       - name: Setup Node
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         uses: actions/setup-node@v6
@@ -70,6 +83,21 @@ jobs:
           yarn build
           sed -i '' 's/"targets": "deb"/"targets": "all"/g' src-tauri/tauri.conf.json
           sed -i '' 's/"externalBin": \[\]/"externalBin": \["bin\/dmlive"\]/g' src-tauri/tauri.conf.json
+          # Add icon configuration for macOS bundle
+          python3 -c "
+          import json
+          with open('src-tauri/tauri.conf.json', 'r') as f:
+              conf = json.load(f)
+          conf['tauri']['bundle']['icon'] = [
+              'icons/32x32.png',
+              'icons/128x128.png',
+              'icons/128x128@2x.png',
+              'icons/icon.icns',
+              'icons/icon.ico'
+          ]
+          with open('src-tauri/tauri.conf.json', 'w') as f:
+              json.dump(conf, f, indent=2)
+          "
           yarn tauri build --target aarch64-apple-darwin
 
       - name: Commit Updated Submodules
@@ -86,12 +114,15 @@ jobs:
         run: |
           echo "VERSION=$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)" >> $GITHUB_ENV
 
-      - name: Calculate SHA256
+      - name: Prepare DMG
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         id: shasum
         run: |
-          DMG_PATH=$(ls Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
-          echo "sha256=$(shasum -a 256 "$DMG_PATH" | awk '{print $1}')" >> $GITHUB_OUTPUT
+          DMG_SRC=$(ls Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+          DMG_DEST="Revda-macOS-aarch64.dmg"
+          cp "$DMG_SRC" "$DMG_DEST"
+          echo "sha256=$(shasum -a 256 "$DMG_DEST" | awk '{print $1}')" >> $GITHUB_OUTPUT
+          echo "dmg_path=$DMG_DEST" >> $GITHUB_OUTPUT
 
       - name: Create GitHub Release
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
@@ -102,7 +133,7 @@ jobs:
           body: |
             - **Build**: ${{ env.VERSION }}
             - **DMG SHA256**: `${{ steps.shasum.outputs.sha256 }}`
-          files: Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          files: ${{ steps.shasum.outputs.dmg_path }}
           draft: false
           prerelease: false
 
@@ -112,5 +143,5 @@ jobs:
         with:
           name: Revda-${{ env.VERSION }}
           path: |
-            Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            ${{ steps.shasum.outputs.dmg_path }}
             Revda/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app
