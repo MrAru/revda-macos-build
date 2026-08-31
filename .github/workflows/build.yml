@@ -1,8 +1,21 @@
 name: Build Revda for macOS Silicon
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/build.yml'
+      - 'patches/**'
+      - '.gitmodules'
   schedule:
     - cron: '0 0 * * 0'
+
+env:
+  # Temporary override while MrAru/dmlive:feature/bilibili-subtitle-tracks is pending upstream.
+  # Replace this commit with the upstream merge commit afterwards.
+  DMLIVE_REPOSITORY: https://github.com/MrAru/dmlive.git
+  DMLIVE_REF: a12f711c129778ae8f97b60c06e46ac71ec04b56
 
 permissions:
   contents: write
@@ -21,11 +34,18 @@ jobs:
         id: check_changes
         run: |
           git submodule update --init --recursive --remote
-          if [ -n "$(git status --porcelain)" ]; then
+          if [ "${{ github.event_name }}" != "schedule" ] || [ -n "$(git status --porcelain)" ]; then
             echo "changed=true" >> $GITHUB_ENV
           else
             echo "changed=false" >> $GITHUB_ENV
           fi
+
+      - name: Use Pending dmlive Changes
+        if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          git -C Revda/dmlive fetch --depth=1 "$DMLIVE_REPOSITORY" "$DMLIVE_REF"
+          git -C Revda/dmlive checkout --detach FETCH_HEAD
+          test "$(git -C Revda/dmlive rev-parse HEAD)" = "$DMLIVE_REF"
 
       - name: Apply Patches
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
@@ -106,8 +126,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Revda
-          git commit -m "chore: update submodules [skip ci]"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update submodules [skip ci]"
+            git push
+          fi
 
       - name: Set Version
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
