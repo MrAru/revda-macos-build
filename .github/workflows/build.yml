@@ -15,7 +15,7 @@ env:
   # Temporary override while MrAru/dmlive:feature/bilibili-subtitle-tracks is pending upstream.
   # Replace this commit with the upstream merge commit afterwards.
   DMLIVE_REPOSITORY: https://github.com/MrAru/dmlive.git
-  DMLIVE_REF: 2bec9039bf66bb7b3fe6abf01e699a8dcdff2a14
+  DMLIVE_REF: 9ee9d25973262ae03c923dadc8ac5027fdb31e11
 
 permissions:
   contents: write
