@@ -12,10 +12,10 @@ on:
     - cron: '0 0 * * 0'
 
 env:
-  # Temporary override while MrAru/dmlive:feature/bilibili-subtitle-tracks is pending upstream.
+  # Temporary override while the dmlive changes are pending upstream.
   # Replace this commit with the upstream merge commit afterwards.
   DMLIVE_REPOSITORY: https://github.com/MrAru/dmlive.git
-  DMLIVE_REF: 4018cb891ea97bb96645c92cc02c4cf2f15cfe4c
+  DMLIVE_REF: 439b5192dd04372f1cb256e4d962b2639f1bac4c
 
 permissions:
   contents: write
@@ -50,10 +50,7 @@ jobs:
       - name: Apply Patches
         if: env.changed == 'true' || github.event_name == 'workflow_dispatch'
         run: |
-          cd Revda/dmlive
-          git apply ../../patches/macos_ffmpeg.patch
-          git apply ../../patches/macos_mpv.patch
-          cd ..
+          cd Revda
           git apply ../patches/macos_dmlive_path.patch
 
       - name: Install System Dependencies
